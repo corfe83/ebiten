@@ -255,3 +255,18 @@ func Touches() []Touch {
 	}
 	return ts
 }
+
+// GamepadIDs returns a slice indicating available gamepad IDs.
+//
+// GamepadIDs is concurrent-safe.
+//
+// GamepadIDs always returns an empty slice on mobiles.
+func NextClickEvent() (MouseButton, int, int, bool) {
+	button, x, y, ok := uiDriver().Input().NextClickEvent()
+	if !ok {
+		return -1, -1, -1, false
+	}
+
+	x, y = theUIContext.AdjustPosition(x, y)
+	return MouseButton(button), int(x), int(y), true
+}

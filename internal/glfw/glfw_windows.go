@@ -218,6 +218,21 @@ func (w *Window) SetScrollCallback(cbfun ScrollCallback) (previous ScrollCallbac
 	return nil // TODO
 }
 
+func (w *Window) SetMouseClickCallback(cbfun MouseClickCallback) (previous MouseClickCallback) {
+	var gcb uintptr
+	if cbfun != nil {
+		gcb = windows.NewCallbackCDecl(func(window uintptr, button, action, mods int) uintptr {
+			// xoff and yoff were originally float64, but there is no good way to pass them on 32bit
+			// machines via NewCallback. We've fixed GLFW side to use pointer values.
+			cbfun(theGLFWWindows.get(window), button, action, mods)
+			return 0
+		})
+	}
+	glfwDLL.call("glfwSetMouseButtonCallback", w.w, gcb)
+	panicError()
+	return nil // TODO
+}
+
 func (w *Window) SetSizeCallback(cbfun SizeCallback) (previous FramebufferSizeCallback) {
 	var gcb uintptr
 	if cbfun != nil {

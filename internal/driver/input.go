@@ -29,4 +29,5 @@ type Input interface {
 	TouchIDs() []int
 	TouchPosition(id int) (x, y int)
 	Wheel() (xoff, yoff float64)
+	NextClickEvent() (button MouseButton, x, y float64, ok bool)
 }

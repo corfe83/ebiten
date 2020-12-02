@@ -37,6 +37,12 @@ type gamePad struct {
 	buttonPressed [256]bool
 }
 
+type mouseClickEvent struct {
+	x      float64
+	y      float64
+	button driver.MouseButton
+}
+
 type Input struct {
 	keyPressed         map[glfw.Key]bool
 	mouseButtonPressed map[glfw.MouseButton]bool
@@ -49,6 +55,7 @@ type Input struct {
 	touches            map[int]pos // TODO: Implement this (#417)
 	runeBuffer         []rune
 	ui                 *UserInterface
+	clickEvents        []mouseClickEvent
 }
 
 type pos struct {
@@ -309,6 +316,33 @@ func (i *Input) setWheel(xoff, yoff float64) {
 	i.scrollY = yoff
 }
 
+func (i *Input) appendClickEvent(w *glfw.Window, button int) {
+	// As this function is called from GLFW callbacks, the current thread is main.
+	x, y := w.GetCursorPos()
+	x = i.ui.fromGLFWMonitorPixel(x)
+	y = i.ui.fromGLFWMonitorPixel(y)
+	driverButton, ok := glfwMouseButtonToMouseButton[glfw.MouseButton(button)]
+	if !ok {
+		return
+	}
+
+	i.clickEvents = append(i.clickEvents, mouseClickEvent{
+		x:      x,
+		y:      y,
+		button: driverButton,
+	})
+}
+
+func (i *Input) NextClickEvent() (button driver.MouseButton, x, y float64, ok bool) {
+	if len(i.clickEvents) == 0 {
+		return -1, -1, -1, false
+	}
+
+	valueToReturn := i.clickEvents[0]
+	i.clickEvents = i.clickEvents[1:]
+	return valueToReturn.button, valueToReturn.x, valueToReturn.y, true
+}
+
 func (i *Input) update(window *glfw.Window, context driver.UIContext) {
 	var cx, cy float64
 	_ = i.ui.t.Call(func() error {
@@ -318,6 +352,11 @@ func (i *Input) update(window *glfw.Window, context driver.UIContext) {
 			})
 			window.SetScrollCallback(func(w *glfw.Window, xoff float64, yoff float64) {
 				i.setWheel(xoff, yoff)
+			})
+			window.SetMouseClickCallback(func(w *glfw.Window, button, action, mods int) {
+				if action == 1 {
+					i.appendClickEvent(w, button)
+				}
 			})
 		})
 		if i.keyPressed == nil {
@@ -342,8 +381,8 @@ func (i *Input) update(window *glfw.Window, context driver.UIContext) {
 	cx, cy = context.AdjustPosition(cx, cy)
 
 	_ = i.ui.t.Call(func() error {
+		
 		i.cursorX, i.cursorY = int(cx), int(cy)
-
 		for id := glfw.Joystick(0); id < glfw.Joystick(len(i.gamepads)); id++ {
 			i.gamepads[id].valid = false
 			if !id.Present() {

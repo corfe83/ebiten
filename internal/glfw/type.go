@@ -20,6 +20,7 @@ type (
 	CharModsCallback        func(w *Window, char rune, mods ModifierKey)
 	FramebufferSizeCallback func(w *Window, width int, height int)
 	ScrollCallback          func(w *Window, xoff float64, yoff float64)
+	MouseClickCallback      func(w *Window, button, action, mods int)
 	SizeCallback            func(w *Window, width int, height int)
 )
 
