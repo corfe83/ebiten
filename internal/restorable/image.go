@@ -17,6 +17,7 @@ package restorable
 import (
 	"fmt"
 	"image"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/affine"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
@@ -26,6 +27,24 @@ import (
 
 type Pixels struct {
 	pixelsRecords *pixelsRecords
+}
+
+var bytePools sync.Pool
+
+func getByteSliceFromPool(minLength int) (truncated, fullSize []byte) {
+	var slice []byte
+	pixRaw := bytePools.Get()
+	if pixRaw != nil {
+		slice = pixRaw.([]byte)
+	} else {
+		slice = make([]byte, minLength)
+	}
+
+	if len(slice) < minLength {
+		slice = append(slice, make([]byte, minLength - len(slice))...)
+	}
+
+	return slice[:minLength], slice
 }
 
 // Apply applies the Pixels state to the given image especially for restoring.
@@ -482,7 +501,9 @@ func (i *Image) makeStaleIfDependingOnShader(shader *Shader) {
 
 // readPixelsFromGPU reads the pixels from GPU and resolves the image's 'stale' state.
 func (i *Image) readPixelsFromGPU(graphicsDriver graphicsdriver.Graphics) error {
-	pix := make([]byte, 4*i.width*i.height)
+	pix, sliceToReturn := getByteSliceFromPool(4*i.width*i.height)
+	defer bytePools.Put(sliceToReturn)
+
 	if err := i.image.ReadPixels(graphicsDriver, pix); err != nil {
 		return err
 	}
